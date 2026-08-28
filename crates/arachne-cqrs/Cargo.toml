@@ -1,0 +1,19 @@
+[package]
+name = "arachne-cqrs"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+description = "CQRS bus — commands and queries for Arachne"
+
+[dependencies]
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["sync"] }
+arachne-domain = { path = "../arachne-domain" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
+

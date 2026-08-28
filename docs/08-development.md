@@ -39,11 +39,13 @@
 
 ### Фаза A — вехи M0–M4
 
-- **M0 — Спайк транспорта (риск-первый):** workspace + компиляция `rquest` (BoringSSL) на Windows; запрос к защищённому сайту без бана. Фоллбэк: dev через WSL/Linux-musl.
-- **M1 — Одна страница → запись:** fetch → DOM → CSS-селекторы → типизированная запись → JSONL. Тесты попутно (фикстуры HTML в `tests/fixtures`).
-- **M2 — 10к страниц:** пагинация (next-селектор / URL-шаблон / sitemap), per-domain concurrency, rate-limit с гауссовым джиттером, retry+backoff, дедуп URL, чекпоинт очереди на диск (kill -9 → resume).
-- **M3 — «Штамп»:** декларативный `job.yaml` (start_urls, пагинация, селекторы, лимиты, экспорт, прокси) → `arachne crawl job.yaml -o out.csv`. Готовый шаблон под типовой заказ.
-- **M4 — Профилирование и оптимизация:** flamegraph + criterion baseline на hot-path (`arachne-net`, `arachne-parse`), отчёт в `docs/benches/` (см. 8.3).
+> **Статус Фазы A:** workspace создан (6 крейтов, см. [README](README.md#статус)), M0 закрыт частично (см. решение ниже), M1 реализован. **Решение по спайку M0:** крейт `rquest` отзнан (yanked) автором с crates.io; преемник — **`wreq`** (тот же автор, форк reqwest). BoringSSL (`wreq`) требует clang/LLVM — на текущей dev-машине Windows clang отсутствует, поэтому: (а) базовый dev-путь — pure-Rust `reqwest`+`rustls` (собирается без C-тулчейна), (б) полная TLS-имперсонация — за фича-флагом `impersonation` (feature `arachne-net/impersonation`), включается на Linux/WSL-таргете или после установки clang. Это соответствует фоллбэку «dev через WSL/Linux» из этого раздела.
+
+- **M0 — Спайк транспорта (риск-первый):** workspace + компиляция `rquest`→**`wreq`** (BoringSSL) на Windows; запрос к защищённому сайту без бана. Фоллбэк: dev через WSL/Linux-musl. **[ЧАСТИЧНО: fallback-бэкенд работает; имперсонация за флагом]**
+- **M1 — Одна страница → запись:** fetch → DOM → CSS-селекторы → типизированная запись → JSONL. Тесты попутно (фикстуры HTML в `tests/fixtures`). **[РЕАЛИЗОВАН: крейты domain/net/parse/export + CLI]**
+- **M2 — 10к страниц:** пагинация (next-селектор / URL-шаблон / sitemap), per-domain concurrency, rate-limit с гауссовым джиттером, retry+backoff, дедуп URL, чекпоинт очереди на диск (kill -9 → resume). **[ЧАСТИЧНО: retry+backoff и джиттер есть; очередь/дедуп/чекпоинт — впереди]**
+- **M3 — «Штамп»:** декларативный `job.yaml` (start_urls, пагинация, селекторы, лимиты, экспорт, прокси) → `arachne crawl job.yaml -o out.csv`. Готовый шаблон под типовой заказ. **[ЧАСТИЧНО: job.yaml читается (start_urls, селекторы, прокси, limit, экспорт по расширению); пагинация — впереди]**
+- **M4 — Профилирование и оптимизация:** flamegraph + criterion baseline на hot-path (`arachne-net`, `arachne-parse`), отчёт в `docs/benches/` (см. 8.3). **[НЕ НАЧАТ]**
 
 **Скоуп-дисциплина Фазы A:** НЕ входить — собственный JS-движок (`boa_engine`), Smart Router-эскалация, LLM, eBPF, кластер, SaaS. `scraper`/`html5ever` — это чистый DOM-парсер, не браузер: их использование в Фазе A не нарушает отказ от готовых браузеров ([11-browser-engines.md](11-browser-engines.md)).
 

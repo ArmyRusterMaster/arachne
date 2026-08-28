@@ -1,0 +1,30 @@
+[package]
+name = "arachne-net"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+description = "Stealth HTTP transport for Arachne"
+
+[features]
+default = []
+# TLS impersonation via BoringSSL (requires clang on Windows; native on Linux).
+impersonation = ["wreq", "wreq-util"]
+
+[dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+thiserror = "1"
+bytes = "1"
+# Fallback pure-Rust HTTP client (no C toolchain needed).
+reqwest = { version = "0.13", default-features = false, features = ["gzip", "cookies", "rustls", "webpki-roots"] }
+arachne-domain = { path = "../arachne-domain" }
+
+# TLS impersonation backend (optional — needs clang/BoringSSL on Windows).
+wreq = { version = "0.16", default-features = false, features = ["json", "gzip", "cookies", "webpki-roots", "tokio-rt"], optional = true }
+wreq-util = { version = "0.2", default-features = false, features = ["emulation"], optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }

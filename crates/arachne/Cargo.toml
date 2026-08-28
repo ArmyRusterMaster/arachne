@@ -1,0 +1,27 @@
+[package]
+name = "arachne"
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+description = "Stealth crawler — Fast HTTP core (Phase A stamp kernel)"
+publish = false
+
+[[bin]]
+name = "arachne"
+path = "src/bin/arachne.rs"
+
+[dependencies]
+arachne-domain = { path = "../arachne-domain" }
+arachne-cqrs = { path = "../arachne-cqrs" }
+arachne-net = { path = "../arachne-net" }
+arachne-parse = { path = "../arachne-parse" }
+arachne-export = { path = "../arachne-export" }
+
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+anyhow = "1"

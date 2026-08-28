@@ -1,6 +1,20 @@
-[package]
-name = "arachne"
-version = "0.1.0"
-edition = "2024"
+[workspace]
+resolver = "3"
+members = [
+    "crates/arachne-domain",
+    "crates/arachne-cqrs",
+    "crates/arachne-net",
+    "crates/arachne-parse",
+    "crates/arachne-export",
+    "crates/arachne",
+]
 
-[dependencies]
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+publish = false
+
+[profile.release]
+lto = true
+codegen-units = 1
+opt-level = 3
