@@ -66,3 +66,46 @@ fn extract_pagination_next_link() {
     let hrefs = d.select_text_all(&sel).unwrap();
     assert!(hrefs.iter().any(|t| t == "next"));
 }
+
+#[test]
+fn nested_selector_extracts_repeated_blocks() {
+    let html = Html::new(Bytes::from_static(
+        r#"<html><body>
+            <div class="item"><span class="name">Alice</span><span class="age">30</span></div>
+            <div class="item"><span class="name">Bob</span><span class="age">25</span></div>
+        </body></html>"#
+            .as_bytes(),
+    ));
+    let d = Dom::parse(&html).unwrap();
+    let nested = arachne_domain::NestedSelector {
+        repeat_selector: ".item".to_string(),
+        fields: vec![
+            arachne_domain::NestedField {
+                name: "name".to_string(),
+                selector: ".name".to_string(),
+            },
+            arachne_domain::NestedField {
+                name: "age".to_string(),
+                selector: ".age".to_string(),
+            },
+        ],
+    };
+    let records = d.select_all_nested(&nested).unwrap();
+    assert_eq!(records.len(), 4); // 2 блока × 2 поля
+
+    assert_eq!(records[0].index, 0);
+    assert_eq!(records[0].field, "name");
+    assert_eq!(records[0].value, "Alice");
+
+    assert_eq!(records[1].index, 0);
+    assert_eq!(records[1].field, "age");
+    assert_eq!(records[1].value, "30");
+
+    assert_eq!(records[2].index, 1);
+    assert_eq!(records[2].field, "name");
+    assert_eq!(records[2].value, "Bob");
+
+    assert_eq!(records[3].index, 1);
+    assert_eq!(records[3].field, "age");
+    assert_eq!(records[3].value, "25");
+}

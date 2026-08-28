@@ -18,6 +18,7 @@ Arachne — это pure-Rust движок скрытного краулинга,
 | 1 | [01-tech-stack.md](01-tech-stack.md) | Технологический стек и ключевые фичи |
 | 2 | [02-stealth.md](02-stealth.md) | Стелс-фичи, анти-детекшн, обход защит |
 | 3 | [03-smart-routing.md](03-smart-routing.md) | Smart Router: выбор режима, эскалация сессий |
+| 3b | [03-job-yaml.md](03-job-yaml.md) | Формат job.yaml: селекторы, вложенные селекторы, прокси, лимиты |
 | 4 | [04-architecture.md](04-architecture.md) | Базовая архитектура: сессии, память, DOM-стриминг |
 | 5 | [05-rust-patterns.md](05-rust-patterns.md) | Специфические Rust-паттерны (Newtype, Typestate) |
 | 6 | [06-infrastructure.md](06-infrastructure.md) | Сетевая инфраструктура (базовый вариант) |
@@ -68,7 +69,7 @@ Arachne — это pure-Rust движок скрытного краулинга,
 | `arachne-net` | Транспорт: generic `StealthSession<B: HttpFetch>` — ротация прокси round-robin, ретраи с экспоненциальным backoff, статистика; гауссов джиттер (Box-Muller) с внедряемым RNG (`JitterRng`) — rules.md §8 |
 | `arachne-parse` | DOM-парсинг + CSS-селекторы поверх `scraper` (html5ever) |
 | `arachne-export` | Экспорт CSV/JSONL (+ SQLite за feature-флагом `sqlite`) |
-| `arachne` | CLI-бинарник: `arachne crawl --job job.yaml --output out.csv` (`clap`), интеграция всех слоёв |
+| `arachne` | CLI-бинарник: `arachne crawl --job job.yaml --output out.csv` (`clap`), интеграция всех слоёв. Поддерживает вложенные селекторы (CSS) для извлечения структурированных списков |
 
 Транспорт — двухбэкендный (за фича-флагом `impersonation` в `arachne-net`):
 

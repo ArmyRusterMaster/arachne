@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use arachne_domain::{PageId, Selector, TaskId, Url};
+use arachne_domain::{NestedSelector, PageId, Selector, TaskId, Url};
 use arachne_export::Record;
 use arachne_net::{DefaultSession, GaussJitter, OsJitterRng, SessionConfig};
 use arachne_parse::Dom;
@@ -50,6 +50,10 @@ struct Job {
     start_urls: Vec<String>,
     #[serde(default)]
     selectors: Vec<SelectorMapping>,
+    /// Вложенные селекторы: извлекают структурированные данные
+    /// из повторяющихся блоков (docs/03-job-yaml.md §4).
+    #[serde(default)]
+    nested_selectors: Vec<NestedSelector>,
     #[serde(default)]
     proxies: Vec<String>,
     #[serde(default)]
@@ -61,6 +65,9 @@ struct SelectorMapping {
     name: String,
     selector: String,
 }
+
+// NestedField и NestedSelector сериализуются/десериализуются напрямую из
+// arachne_domain (они уже имеют serde), поэтому не нужны локальные модели.
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -124,6 +131,22 @@ async fn run_crawl(job_path: &Path, output: Option<&Path>, delay_ms: u64) -> any
                     url: url.to_string(),
                     field: m.name.clone(),
                     value: v.trim().to_string(),
+                });
+            }
+        }
+
+        // Вложенный поиск: повторяющиеся блоки с полями внутри.
+        // Каждый NestedRecord превращается в Record с field="{nested_name}[{index}]"
+        // чтобы сохранить структуру в flat-формате CSV/JSONL.
+        for ns in &job.nested_selectors {
+            let nested = dom.select_all_nested(ns)?;
+            for nr in nested {
+                records.push(Record {
+                    task_id: task_id.get(),
+                    page_id: page_id.get(),
+                    url: url.to_string(),
+                    field: format!("{}[{}]", nr.field, nr.index),
+                    value: nr.value.clone(),
                 });
             }
         }

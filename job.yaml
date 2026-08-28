@@ -5,10 +5,19 @@ start_urls:
 
 # CSS-селекторы: что вытащить со страницы (первое совпадение на селектор)
 selectors:
-  - name: quote_text
-    selector: ".quote .text"
-  - name: quote_author
-    selector: ".quote .author"
+  - name: page_title
+    selector: h1
+
+# Вложенные селекторы: повторяющиеся блоки с полями внутри.
+# Сначала ищется блок по repeat_selector, а внутри него — поля.
+# Результат: для каждого блока создаются записи quote_text[0], quote_author[0], etc.
+nested_selectors:
+  - repeat_selector: .quote
+    fields:
+      - name: quote_text
+        selector: .text
+      - name: quote_author
+        selector: .author
 
 # Опционально: пул прокси (round-robin)
 # proxies:

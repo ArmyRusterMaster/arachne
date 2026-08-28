@@ -314,3 +314,32 @@ pub enum SelectorError {
     #[error("selector must not be empty")]
     Empty,
 }
+
+/// Одно поле внутри вложенного селектора (docs/03-job-yaml.md §4).
+///
+/// Пример: внутри блока `.quote` извлечь текст по селектору `.text`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NestedField {
+    /// Имя поля (будет использовано в `Record.field`).
+    pub name: String,
+    /// CSS-селектор внутри родительского блока.
+    pub selector: String,
+}
+
+/// Вложенный селектор: повторяется по `repeat_selector`, а внутри
+/// каждого совпадения извлекаются `fields` по их CSS-селекторам.
+///
+/// Пример для quotes.toscrape.com:
+/// ```yaml
+/// - repeat_selector: ".quote"
+///   fields:
+///     - { name: "quote_text", selector: ".text" }
+///     - { name: "quote_author", selector: ".author" }
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NestedSelector {
+    /// CSS-селектор повторяющихся блоков.
+    pub repeat_selector: String,
+    /// Поля для извлечения внутри каждого блока.
+    pub fields: Vec<NestedField>,
+}
