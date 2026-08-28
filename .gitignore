@@ -4,3 +4,4 @@
 /.fmt2.log
 /.clippy.log
 /.test.log
+/.build.log
