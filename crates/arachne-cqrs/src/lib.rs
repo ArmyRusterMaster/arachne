@@ -33,7 +33,11 @@ pub enum Query {
     /// List active workers / sessions.
     ListWorkers {},
     /// Get the result rows for a task (paginated).
-    GetResults { task: TaskId, offset: u64, limit: u32 },
+    GetResults {
+        task: TaskId,
+        offset: u64,
+        limit: u32,
+    },
 }
 
 /// Value returned from a query.

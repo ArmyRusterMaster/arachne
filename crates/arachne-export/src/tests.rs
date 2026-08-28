@@ -4,15 +4,13 @@ use super::*;
 use tempfile::NamedTempFile;
 
 fn sample() -> Vec<Record> {
-    vec![
-        Record {
-            task_id: 1,
-            page_id: 10,
-            url: "https://x.io".into(),
-            field: "title".into(),
-            value: "Hello".into(),
-        },
-    ]
+    vec![Record {
+        task_id: 1,
+        page_id: 10,
+        url: "https://x.io".into(),
+        field: "title".into(),
+        value: "Hello".into(),
+    }]
 }
 
 #[test]
@@ -77,6 +75,6 @@ fn sqlite_not_available_without_feature() {
 
 #[test]
 fn export_error_display() {
-    let e = ExportError::Io(std::io::Error::new(std::io::ErrorKind::Other, "bad"));
+    let e = ExportError::Io(std::io::Error::other("bad"));
     assert!(e.to_string().contains("IO error"));
 }

@@ -70,14 +70,19 @@ async fn session_counts_requests_and_errors() {
         async fn fetch(&self, _url: &Url) -> Result<Html, NetError> {
             let n = self.calls.fetch_add(1, Ordering::SeqCst);
             if n < 2 {
-                Err(NetError::Status { status: 429, body: String::new() })
+                Err(NetError::Status {
+                    status: 429,
+                    body: String::new(),
+                })
             } else {
                 Ok(Html::new(bytes::Bytes::from_static(b"ok")))
             }
         }
     }
 
-    let backend = FlakyBackend { calls: AtomicU32::new(0) };
+    let backend = FlakyBackend {
+        calls: AtomicU32::new(0),
+    };
     let cfg = SessionConfig {
         jitter_ms: 1,
         max_retries: 3,
@@ -95,12 +100,13 @@ async fn session_counts_requests_and_errors() {
 
 #[tokio::test]
 async fn session_exhausts_retries() {
-    use std::sync::atomic::{AtomicU32, Ordering};
-
     struct Always429;
     impl HttpFetch for Always429 {
         async fn fetch(&self, _url: &Url) -> Result<Html, NetError> {
-            Err(NetError::Status { status: 429, body: "nope".into() })
+            Err(NetError::Status {
+                status: 429,
+                body: "nope".into(),
+            })
         }
     }
 
@@ -115,5 +121,4 @@ async fn session_exhausts_retries() {
     assert!(matches!(res, Err(NetError::Status { status: 429, .. })));
     let snap = s.stats().snapshot();
     assert_eq!(snap.rate_limited, 3); // 1 initial + 2 retries
-}
 }

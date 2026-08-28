@@ -82,14 +82,9 @@ impl<R: JitterRng> GaussJitter<R> {
 mod gauss_tests {
     use super::*;
 
-    /// Детерминированный LCG-генератор (rules.md §8: RNG внедряется).
+    /// Детерминированный xorshift*-генератор (rules.md §8: RNG внедряется).
     struct Lcg {
         state: u64,
-    }
-    impl Lcg {
-        fn new(seed: u64) -> Self {
-            Self { state: seed }
-        }
     }
     impl JitterRng for Lcg {
         fn next_unit(&self) -> f64 {
@@ -116,7 +111,7 @@ mod gauss_tests {
         let j = GaussJitter::new(Lcg { state: 7 });
         for _ in 0..100 {
             let d = j.delay_ms(1000, 300).get();
-            assert!(d >= 1 && d <= 3000, "delay {d} out of bounds");
+            assert!((1..=3000).contains(&d), "delay {d} out of bounds");
         }
     }
 

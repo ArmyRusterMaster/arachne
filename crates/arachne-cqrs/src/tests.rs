@@ -17,7 +17,10 @@ async fn escalate_returns_no_handler() {
     let bus = InprocBus::new();
     let sid = arachne_domain::SessionId::new();
     let cmd = Command::Escalate { session: sid };
-    assert!(matches!(bus.dispatch(cmd).await, Err(BusError::NoCommandHandler)));
+    assert!(matches!(
+        bus.dispatch(cmd).await,
+        Err(BusError::NoCommandHandler)
+    ));
 }
 
 #[tokio::test]
@@ -28,7 +31,7 @@ async fn list_workers_query_returns_json_array() {
     match val {
         QueryValue::Json(v) => {
             assert!(v.is_array());
-            assert!(v.as_array().unwrap().len() >= 1);
+            assert!(!v.as_array().unwrap().is_empty());
         }
         _ => panic!("expected Json"),
     }

@@ -86,7 +86,6 @@ impl Url {
     }
 }
 
-
 /// A proxy server address (host:port, optionally with user:pass@).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ProxyAddr(String);

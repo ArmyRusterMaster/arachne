@@ -152,7 +152,10 @@ impl<B: HttpFetch> StealthSession<B> {
                     if attempt > self.config.max_retries {
                         return Err(e);
                     }
-                    debug!("retry {attempt}/{} after error: {e}", self.config.max_retries);
+                    debug!(
+                        "retry {attempt}/{} after error: {e}",
+                        self.config.max_retries
+                    );
                 }
             }
             // Exponential backoff: jitter_ms * 2^(attempt-1), capped at 30s.
@@ -173,10 +176,7 @@ impl<B: HttpFetch> StealthSession<B> {
 
 /// Абстракция HTTP-бэкенда (reqwest fallback / wreq impersonation).
 pub trait HttpFetch: Send + Sync {
-    fn fetch(
-        &self,
-        url: &Url,
-    ) -> impl std::future::Future<Output = Result<Html, NetError>> + Send;
+    fn fetch(&self, url: &Url) -> impl std::future::Future<Output = Result<Html, NetError>> + Send;
 }
 
 // --- Default backend: reqwest + rustls (pure-Rust, no C toolchain) ---------
@@ -194,8 +194,8 @@ impl RustlsBackend {
     pub fn new(proxy: Option<&ProxyAddr>, timeout: Duration) -> Result<Self, NetError> {
         let mut b = reqwest::Client::builder().timeout(timeout);
         if let Some(p) = proxy {
-            let proxy = reqwest::Proxy::all(p.as_ref())
-                .map_err(|e| NetError::BadProxy(e.to_string()))?;
+            let proxy =
+                reqwest::Proxy::all(p.as_ref()).map_err(|e| NetError::BadProxy(e.to_string()))?;
             b = b.proxy(proxy);
         }
         let client = b.build().map_err(|e| NetError::Request(e.to_string()))?;
@@ -224,9 +224,12 @@ impl HttpFetch for RustlsBackend {
             .map_err(|e| NetError::Request(e.to_string()))?;
         if !status.is_success() {
             let body = String::from_utf8_lossy(&bytes).to_string();
-            return Err(NetError::Status { status: status.as_u16(), body });
+            return Err(NetError::Status {
+                status: status.as_u16(),
+                body,
+            });
         }
-        Ok(Html::new(bytes::Bytes::from(bytes)))
+        Ok(Html::new(bytes))
     }
 }
 

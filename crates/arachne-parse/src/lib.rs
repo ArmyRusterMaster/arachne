@@ -34,7 +34,8 @@ impl Dom {
     /// Return the text content of the first element matching `sel`,
     /// or `None` if no match.
     pub fn select_text(&self, sel: &Selector) -> Result<Option<String>, ParseError> {
-        let css = ScraperSelector::parse(sel.as_ref()).map_err(|e| ParseError::Selector(e.to_string()))?;
+        let css = ScraperSelector::parse(sel.as_ref())
+            .map_err(|e| ParseError::Selector(e.to_string()))?;
         Ok(self
             .inner
             .select(&css)
@@ -44,7 +45,8 @@ impl Dom {
 
     /// Return all text matches for `sel` (in document order).
     pub fn select_text_all(&self, sel: &Selector) -> Result<Vec<String>, ParseError> {
-        let css = ScraperSelector::parse(sel.as_ref()).map_err(|e| ParseError::Selector(e.to_string()))?;
+        let css = ScraperSelector::parse(sel.as_ref())
+            .map_err(|e| ParseError::Selector(e.to_string()))?;
         Ok(self
             .inner
             .select(&css)
@@ -54,7 +56,8 @@ impl Dom {
 
     /// Count elements matching `sel`.
     pub fn count(&self, sel: &Selector) -> Result<usize, ParseError> {
-        let css = ScraperSelector::parse(sel.as_ref()).map_err(|e| ParseError::Selector(e.to_string()))?;
+        let css = ScraperSelector::parse(sel.as_ref())
+            .map_err(|e| ParseError::Selector(e.to_string()))?;
         Ok(self.inner.select(&css).count())
     }
 }

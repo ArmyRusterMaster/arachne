@@ -13,7 +13,8 @@ fn url_valid_https() {
 #[test]
 fn url_rejects_non_http_scheme() {
     let err = Url::try_from("ftp://example.com").unwrap_err();
-    assert!(err.to_string().contains("invalid URL"));
+    assert!(matches!(err, UrlError::UnsupportedScheme(_)));
+    assert!(err.to_string().contains("unsupported URL scheme"));
 }
 
 #[test]

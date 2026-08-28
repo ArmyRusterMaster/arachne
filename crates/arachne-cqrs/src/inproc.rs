@@ -39,7 +39,12 @@ impl InprocBus {
     }
 
     pub async fn next_task_id(&self) -> arachne_domain::TaskId {
-        let id = self.state.lock().await.task_counter.fetch_add(1, Ordering::SeqCst);
+        let id = self
+            .state
+            .lock()
+            .await
+            .task_counter
+            .fetch_add(1, Ordering::SeqCst);
         arachne_domain::TaskId::new(id)
     }
 }
@@ -59,7 +64,9 @@ impl Bus for InprocBus {
 
     async fn query(&self, q: Query) -> Result<QueryValue, BusError> {
         match q {
-            Query::GetTaskStatus { .. } => Ok(QueryValue::Json(serde_json::json!({ "status": "ok" }))),
+            Query::GetTaskStatus { .. } => {
+                Ok(QueryValue::Json(serde_json::json!({ "status": "ok" })))
+            }
             Query::ListWorkers {} => Ok(QueryValue::Json(serde_json::json!([{"id": "worker-0"}]))),
             Query::GetResults { offset, limit, .. } => {
                 let s = self.state.lock().await;
@@ -69,9 +76,9 @@ impl Bus for InprocBus {
                     .skip(offset as usize)
                     .take(limit as usize)
                     .collect();
-                Ok(QueryValue::Json(serde_json::to_value(slice).map_err(|e| {
-                    BusError::Internal(e.to_string())
-                })?))
+                Ok(QueryValue::Json(
+                    serde_json::to_value(slice).map_err(|e| BusError::Internal(e.to_string()))?,
+                ))
             }
         }
     }

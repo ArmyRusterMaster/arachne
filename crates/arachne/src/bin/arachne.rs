@@ -18,7 +18,11 @@ use arachne_parse::Dom;
 
 /// CLI for Arachne stealth crawler.
 #[derive(Parser)]
-#[command(name = "arachne", version, about = "Stealth crawler — Phase A stamp kernel")]
+#[command(
+    name = "arachne",
+    version,
+    about = "Stealth crawler — Phase A stamp kernel"
+)]
 struct Cli {
     #[command(subcommand)]
     cmd: Commands,
@@ -62,14 +66,15 @@ struct SelectorMapping {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     tracing_subscriber::fmt().with_env_filter(filter).init();
 
     match cli.cmd {
-        Commands::Crawl { job, output, delay_ms } => {
-            run_crawl(&job, output.as_deref(), delay_ms).await
-        }
+        Commands::Crawl {
+            job,
+            output,
+            delay_ms,
+        } => run_crawl(&job, output.as_deref(), delay_ms).await,
     }
 }
 
@@ -124,11 +129,11 @@ async fn run_crawl(job_path: &Path, output: Option<&Path>, delay_ms: u64) -> any
         }
 
         page_id = PageId::new(page_id.get() + 1);
-        if let Some(limit) = job.limit {
-            if page_id.get() >= limit {
-                info!("limit {} reached, stopping", limit);
-                break;
-            }
+        if let Some(limit) = job.limit
+            && page_id.get() >= limit
+        {
+            info!("limit {limit} reached, stopping");
+            break;
         }
     }
 

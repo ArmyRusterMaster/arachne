@@ -25,10 +25,12 @@ impl WreqBackend {
         timeout: Duration,
     ) -> Result<Self, NetError> {
         let emulation = profile.into_emulation();
-        let mut b = wreq::Client::builder().emulation(emulation).timeout(timeout);
+        let mut b = wreq::Client::builder()
+            .emulation(emulation)
+            .timeout(timeout);
         if let Some(p) = proxy {
-            let proxy = wreq::Proxy::all(p.as_ref())
-                .map_err(|e| NetError::BadProxy(e.to_string()))?;
+            let proxy =
+                wreq::Proxy::all(p.as_ref()).map_err(|e| NetError::BadProxy(e.to_string()))?;
             b = b.proxy(proxy);
         }
         let client = b.build().map_err(|e| NetError::Request(e.to_string()))?;
@@ -43,9 +45,7 @@ impl WreqBackend {
 
 impl Impersonation {
     /// Маппинг на профиль `wreq-util` (реализует `IntoEmulation`).
-    fn into_emulation(
-        self,
-    ) -> wreq::Emulation {
+    fn into_emulation(self) -> wreq::Emulation {
         use wreq_util::emulate::Profile;
         match self {
             Impersonation::Chrome => Profile::Chrome133.into_emulation(),

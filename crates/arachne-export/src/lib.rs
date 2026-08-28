@@ -75,7 +75,9 @@ pub fn to_sqlite<P: AsRef<Path>>(path: P, records: &[Record]) -> Result<(), Expo
         "INSERT INTO records (task_id, page_id, url, field, value) VALUES (?1, ?2, ?3, ?4, ?5)",
     )?;
     for r in records {
-        stmt.execute(rusqlite::params![r.task_id, r.page_id, r.url, r.field, r.value])?;
+        stmt.execute(rusqlite::params![
+            r.task_id, r.page_id, r.url, r.field, r.value
+        ])?;
     }
     Ok(())
 }
