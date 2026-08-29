@@ -116,6 +116,7 @@ dependencies = [
  "arachne-export",
  "arachne-net",
  "arachne-parse",
+ "bytes",
  "clap",
  "serde",
  "serde_json",
