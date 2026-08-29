@@ -135,9 +135,9 @@ async fn run_crawl(job_path: &Path, output: Option<&Path>, delay_ms: u64) -> any
             }
         }
 
-        // Вложенный поиск: повторяющиеся блоки с полями внутри.
-        // Каждый NestedRecord превращается в Record с field="{nested_name}[{index}]"
-        // чтобы сохранить структуру в flat-формате CSV/JSONL.
+        // Вложенный поиск: повторяющиеся блоки с полями внутри, с произвольной
+        // вложенностью (рекурсивные nested). NestedRecord.field уже содержит
+        // имя с путём индексов: "quote_text[0]", "tag_name[0.2]" и т.д.
         for ns in &job.nested_selectors {
             let nested = dom.select_all_nested(ns)?;
             for nr in nested {
@@ -145,8 +145,8 @@ async fn run_crawl(job_path: &Path, output: Option<&Path>, delay_ms: u64) -> any
                     task_id: task_id.get(),
                     page_id: page_id.get(),
                     url: url.to_string(),
-                    field: format!("{}[{}]", nr.field, nr.index),
-                    value: nr.value.clone(),
+                    field: nr.field,
+                    value: nr.value,
                 });
             }
         }

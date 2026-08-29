@@ -329,12 +329,15 @@ pub struct NestedField {
 /// Вложенный селектор: повторяется по `repeat_selector`, а внутри
 /// каждого совпадения извлекаются `fields` по их CSS-селекторам.
 ///
-/// Пример для quotes.toscrape.com:
+/// Поддерживает **произвольную вложенность** через рекурсивное поле `nested`:
 /// ```yaml
 /// - repeat_selector: ".quote"
 ///   fields:
 ///     - { name: "quote_text", selector: ".text" }
-///     - { name: "quote_author", selector: ".author" }
+///   nested:
+///     - repeat_selector: ".tags .tag"
+///       fields:
+///         - { name: "tag_name", selector: "a" }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NestedSelector {
@@ -342,4 +345,7 @@ pub struct NestedSelector {
     pub repeat_selector: String,
     /// Поля для извлечения внутри каждого блока.
     pub fields: Vec<NestedField>,
+    /// Рекурсивные вложенные repeat-селекторы (внутри найденных блоков).
+    #[serde(default)]
+    pub nested: Vec<NestedSelector>,
 }

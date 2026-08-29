@@ -89,23 +89,78 @@ fn nested_selector_extracts_repeated_blocks() {
                 selector: ".age".to_string(),
             },
         ],
+        nested: vec![],
     };
     let records = d.select_all_nested(&nested).unwrap();
     assert_eq!(records.len(), 4); // 2 блока × 2 поля
 
     assert_eq!(records[0].index, 0);
-    assert_eq!(records[0].field, "name");
+    assert_eq!(records[0].field, "name[0]");
     assert_eq!(records[0].value, "Alice");
 
     assert_eq!(records[1].index, 0);
-    assert_eq!(records[1].field, "age");
+    assert_eq!(records[1].field, "age[0]");
     assert_eq!(records[1].value, "30");
 
     assert_eq!(records[2].index, 1);
-    assert_eq!(records[2].field, "name");
+    assert_eq!(records[2].field, "name[1]");
     assert_eq!(records[2].value, "Bob");
 
     assert_eq!(records[3].index, 1);
-    assert_eq!(records[3].field, "age");
+    assert_eq!(records[3].field, "age[1]");
     assert_eq!(records[3].value, "25");
+}
+
+#[test]
+fn nested_selector_recurses_two_levels() {
+    // Структура как на quotes.toscrape.com: .quote → .tags .tag
+    let html = Html::new(Bytes::from_static(
+        r#"<html><body>
+            <div class="quote">
+                <span class="text">Quote one</span>
+                <div class="tags"><a class="tag">life</a><a class="tag">love</a></div>
+            </div>
+            <div class="quote">
+                <span class="text">Quote two</span>
+                <div class="tags"><a class="tag">books</a></div>
+            </div>
+        </body></html>"#
+            .as_bytes(),
+    ));
+    let d = Dom::parse(&html).unwrap();
+    let root = arachne_domain::NestedSelector {
+        repeat_selector: ".quote".to_string(),
+        fields: vec![arachne_domain::NestedField {
+            name: "quote_text".to_string(),
+            selector: ".text".to_string(),
+        }],
+        nested: vec![arachne_domain::NestedSelector {
+            repeat_selector: ".tags .tag".to_string(),
+            fields: vec![arachne_domain::NestedField {
+                name: "tag_name".to_string(),
+                selector: ".".to_string(), // текст самого блока
+            }],
+            nested: vec![],
+        }],
+    };
+    let records = d.select_all_nested(&root).unwrap();
+    // Уровень 1: 2 цитаты × 1 поле; уровень 2: 2 + 1 тегов × 1 поле = 5 записей
+    assert_eq!(records.len(), 5);
+
+    // Порядок: блок 0 → его поля → его вложенные; затем блок 1.
+    assert_eq!(records[0].field, "quote_text[0]");
+    assert_eq!(records[0].value, "Quote one");
+
+    // Вложенные: путь индексов родитель_блок.вложенный_блок
+    assert_eq!(records[1].field, "tag_name[0.0]");
+    assert_eq!(records[1].value, "life");
+    assert_eq!(records[2].field, "tag_name[0.1]");
+    assert_eq!(records[2].value, "love");
+
+    assert_eq!(records[3].field, "quote_text[1]");
+    assert_eq!(records[3].value, "Quote two");
+    assert_eq!(records[4].field, "tag_name[1.0]");
+    assert_eq!(records[4].value, "books");
+    // index вложенной записи — индекс внутри родительского блока
+    assert_eq!(records[4].index, 0);
 }

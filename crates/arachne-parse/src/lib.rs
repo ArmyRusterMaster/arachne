@@ -3,7 +3,7 @@
 //! Wraps `scraper`/`html5ever` into a tight, typed API that consumes
 //! `arachne_domain::Html` (zero-copy `Bytes`).
 
-use scraper::{Html as ScraperHtml, Selector as ScraperSelector};
+use scraper::{ElementRef, Html as ScraperHtml, Selector as ScraperSelector};
 
 use arachne_domain::{Html, Selector};
 use serde::{Deserialize, Serialize};
@@ -19,9 +19,14 @@ pub enum ParseError {
 }
 
 /// Запись из вложенного поиска: один блок (index) + поле + значение.
+///
+/// `field` содержит имя поля с путём индексов блоков: `quote_text[0]`
+/// на корневом уровне, `tag_name[0.2]` — на вложенном (блок 0 → его
+/// вложенный блок 2).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NestedRecord {
     pub index: u64,
+    /// Имя поля с путём индексов: `name[i]`, `name[i.j]`, ...
     pub field: String,
     pub value: String,
 }
@@ -63,45 +68,95 @@ impl Dom {
             .collect())
     }
 
-    /// Вложенный поиск: для каждого элемента, найденного по `repeat_selector`,
-    /// извлекает текст по каждому полю в `NestedSelector`.
+    /// Вложенный поиск с произвольной вложенностью (рекурсивный).
     ///
-    /// Возвращает вектор записей с `index` (номер блока, начиная с 0),
-    /// `field`, `value`.
-    ///
-    /// ```yaml
-    /// repeat_selector: ".quote"
-    /// fields:
-    ///   - { name: "text", selector: ".text" }
-    ///   - { name: "author", selector: ".author" }
-    /// ```
+    /// Имя поля в результате — `{name}[{путь индексов}]`: `quote_text[0]`,
+    /// `tag_name[0.2]` и т.д. Спец-селектор `"."` означает «текст самого
+    /// блока» (для листовых элементов вроде `a.tag`).
     pub fn select_all_nested(
         &self,
         nested: &arachne_domain::NestedSelector,
     ) -> Result<Vec<NestedRecord>, ParseError> {
         let repeat = ScraperSelector::parse(&nested.repeat_selector)
             .map_err(|e| ParseError::Selector(e.to_string()))?;
-
         let mut out = Vec::new();
-        for (idx, block) in self.inner.select(&repeat).enumerate() {
-            for field in &nested.fields {
-                let css = ScraperSelector::parse(&field.selector)
-                    .map_err(|e| ParseError::Selector(e.to_string()))?;
-                // Ищем селектор внутри текущего блока (scraper поддерживает
-                // поиск по отношению к элементу через select).
-                let value = block
-                    .select(&css)
-                    .next()
-                    .map(|el| el.text().collect::<String>())
-                    .unwrap_or_default();
+        self.collect_nested(
+            &self.inner.root_element(),
+            nested,
+            &repeat,
+            String::new(),
+            &mut out,
+        )?;
+        Ok(out)
+    }
+
+    /// Рекурсивный обход блоков `ns` внутри `parent`.
+    fn collect_nested(
+        &self,
+        parent: &ElementRef,
+        ns: &arachne_domain::NestedSelector,
+        repeat: &ScraperSelector,
+        index_path: String,
+        out: &mut Vec<NestedRecord>,
+    ) -> Result<(), ParseError> {
+        // Селекторы полей и вложенных уровней парсим один раз на уровень,
+        // а не для каждого блока. Спец-селектор "." (текст самого блока)
+        // не парсится как CSS — помечается через None.
+        let fields = ns
+            .fields
+            .iter()
+            .map(|f| {
+                if f.selector == "." {
+                    Ok((None, f.name.as_str()))
+                } else {
+                    ScraperSelector::parse(&f.selector)
+                        .map(|css| (Some(css), f.name.as_str()))
+                        .map_err(|e| ParseError::Selector(e.to_string()))
+                }
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let children = ns
+            .nested
+            .iter()
+            .map(|c| {
+                ScraperSelector::parse(&c.repeat_selector)
+                    .map(|css| (css, c))
+                    .map_err(|e| ParseError::Selector(e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        for (idx, block) in parent.select(repeat).enumerate() {
+            let idx = idx as u64;
+            let block_path = if index_path.is_empty() {
+                format!("{idx}")
+            } else {
+                format!("{index_path}.{idx}")
+            };
+
+            // Поля на этом уровне: field = "{name}[{block_path}]".
+            for (css, name) in &fields {
+                let value = match css {
+                    // Спец-селектор: текст самого блока.
+                    None => block.text().collect::<String>(),
+                    Some(css) => block
+                        .select(css)
+                        .next()
+                        .map(|el| el.text().collect::<String>())
+                        .unwrap_or_default(),
+                };
                 out.push(NestedRecord {
-                    index: idx as u64,
-                    field: field.name.clone(),
+                    index: idx,
+                    field: format!("{name}[{block_path}]"),
                     value: value.trim().to_string(),
                 });
             }
+
+            // Спускаемся в вложенные repeat-селекторы внутри блока.
+            for (child_repeat, child_ns) in &children {
+                self.collect_nested(&block, child_ns, child_repeat, block_path.clone(), out)?;
+            }
         }
-        Ok(out)
+        Ok(())
     }
 
     /// Count elements matching `sel`.

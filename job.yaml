@@ -10,7 +10,9 @@ selectors:
 
 # Вложенные селекторы: повторяющиеся блоки с полями внутри.
 # Сначала ищется блок по repeat_selector, а внутри него — поля.
-# Результат: для каждого блока создаются записи quote_text[0], quote_author[0], etc.
+# Рекурсивно: секция nested ищет повторяющиеся блоки внутри блока
+# (произвольная глубина вложенности).
+# Результат: quote_text[0], quote_author[0], tag_name[0.0], tag_name[0.1]...
 nested_selectors:
   - repeat_selector: .quote
     fields:
@@ -18,6 +20,13 @@ nested_selectors:
         selector: .text
       - name: quote_author
         selector: .author
+    # Вложенный уровень: теги внутри каждой цитаты (a.tag — листовой элемент,
+    # поэтому спец-селектор "." берёт текст самого блока).
+    nested:
+      - repeat_selector: .tags .tag
+        fields:
+          - name: tag_name
+            selector: "."
 
 # Опционально: пул прокси (round-robin)
 # proxies:
