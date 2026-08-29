@@ -14,3 +14,6 @@ arachne-domain = { path = "../arachne-domain" }
 
 [dev-dependencies]
 bytes = "1"
+
+[lib]
+doctest = false

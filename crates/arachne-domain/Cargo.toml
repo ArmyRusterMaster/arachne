@@ -9,9 +9,13 @@ description = "Domain types (Newtype) and errors for Arachne"
 [dependencies]
 thiserror = "1"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 uuid = { version = "1", features = ["v4", "serde"] }
 url = "2"
 bytes = "1"
 
 [dev-dependencies]
 serde_json = "1"
+
+[lib]
+doctest = false

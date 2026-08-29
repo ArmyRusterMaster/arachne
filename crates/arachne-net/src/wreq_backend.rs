@@ -9,7 +9,7 @@ use tracing::debug;
 
 use arachne_domain::{Html, Url};
 
-use crate::{HttpFetch, Impersonation, NetError};
+use crate::{HttpFetch, Impersonation, NetError, RequestContext};
 
 /// Бэкенд на `wreq` с браузерным TLS-отпечатком.
 #[derive(Debug)]
@@ -56,11 +56,16 @@ impl Impersonation {
 }
 
 impl HttpFetch for WreqBackend {
-    async fn fetch(&self, url: &Url) -> Result<Html, NetError> {
+    async fn fetch_with(&self, url: &Url, ctx: &RequestContext) -> Result<Html, NetError> {
         debug!("GET {} (wreq impersonation)", url);
-        let resp = self
-            .client
-            .get(url.as_ref())
+        let mut req = self.client.get(url.as_ref());
+        for (k, v) in &ctx.headers {
+            req = req.header(k.as_str(), v.as_str());
+        }
+        if let Some(cookie) = ctx.cookie_header() {
+            req = req.header("Cookie", cookie);
+        }
+        let resp = req
             .send()
             .await
             .map_err(|e| NetError::Request(e.to_string()))?;

@@ -90,3 +90,5 @@ pub fn to_sqlite<P: AsRef<Path>>(_path: P, _records: &[Record]) -> Result<(), Ex
 
 #[cfg(test)]
 mod tests;
+
+pub mod template;

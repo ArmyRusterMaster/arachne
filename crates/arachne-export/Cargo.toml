@@ -21,3 +21,6 @@ arachne-domain = { path = "../arachne-domain" }
 
 [dev-dependencies]
 tempfile = "3"
+
+[lib]
+doctest = false

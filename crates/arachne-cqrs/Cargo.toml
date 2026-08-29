@@ -17,3 +17,5 @@ arachne-domain = { path = "../arachne-domain" }
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync"] }
 
+[lib]
+doctest = false

@@ -67,7 +67,7 @@ async fn session_counts_requests_and_errors() {
         calls: AtomicU32,
     }
     impl HttpFetch for FlakyBackend {
-        async fn fetch(&self, _url: &Url) -> Result<Html, NetError> {
+        async fn fetch_with(&self, _url: &Url, _ctx: &RequestContext) -> Result<Html, NetError> {
             let n = self.calls.fetch_add(1, Ordering::SeqCst);
             if n < 2 {
                 Err(NetError::Status {
@@ -102,7 +102,7 @@ async fn session_counts_requests_and_errors() {
 async fn session_exhausts_retries() {
     struct Always429;
     impl HttpFetch for Always429 {
-        async fn fetch(&self, _url: &Url) -> Result<Html, NetError> {
+        async fn fetch_with(&self, _url: &Url, _ctx: &RequestContext) -> Result<Html, NetError> {
             Err(NetError::Status {
                 status: 429,
                 body: "nope".into(),

@@ -349,3 +349,101 @@ pub struct NestedSelector {
     #[serde(default)]
     pub nested: Vec<NestedSelector>,
 }
+
+/// Шаблон структуры вывода: плоский JSON с плейсхолдерами полей.
+///
+/// Подстановки в строках шаблона:
+/// - `{{field}}` — первое значение поля (любого уровня, включая `tag_name[0.2]`);
+/// - `{{field[*]}}` — все значения поля через запятую;
+/// - в секции `__each__` индексы игнорируются: `{{tag_name}}` = все теги
+///   текущего блока (поля `tag_name[i]` этого блока собираются списком).
+///
+/// Пример job.yaml:
+/// ```yaml
+/// output_template:
+///   source: "quotes.toscrape.com"
+///   title: "{{page_title}}"
+///   quotes:
+///     __each__: "quote_text"
+///     text: "{{quote_text}}"
+///     tags: "{{tag_name}}"
+/// ```
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OutputTemplate(pub serde_json::Value);
+
+/// Цикл подстановки значений в URL/заголовки/куки.
+///
+/// Итерация по диапазону чисел или массиву значений.
+/// Переменная `{var}` подставляется в URL, headers, cookies.
+///
+/// Пример job.yaml:
+/// ```yaml
+/// loops:
+///   - var: page
+///     range: {start: 1, end: 100}
+///   - var: id
+///     values: [1, 2, 3, 4, 5]
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Loop {
+    /// Имя переменной для подстановки (`{var}`).
+    pub var: String,
+    /// Диапазон чисел (включительно).
+    pub range: Option<RangeLoop>,
+    /// Массив значений для подстановки.
+    pub values: Option<Vec<String>>,
+}
+
+/// Диапазон чисел для цикла.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RangeLoop {
+    pub start: i64,
+    pub end: i64,
+    #[serde(default = "default_step")]
+    pub step: i64,
+}
+
+fn default_step() -> i64 {
+    1
+}
+
+/// Цикл с условием остановки (while).
+///
+/// Продолжает запросы, пока условие не выполнится или не достигнут лимит итераций.
+/// Переменная `{var}` инкрементируется на каждой итерации.
+///
+/// Пример job.yaml:
+/// ```yaml
+/// while:
+///   var: page
+///   start: 1
+///   max_iterations: 1000
+///   stop_when:
+///     status: 404
+///     text: "No quotes found"
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct While {
+    /// Имя переменной для подстановки (`{var}`).
+    pub var: String,
+    /// Начальное значение.
+    pub start: i64,
+    /// Шаг инкремента.
+    #[serde(default = "default_step")]
+    pub step: i64,
+    /// Максимальное число итераций (защита от бесконечного цикла).
+    pub max_iterations: u64,
+    /// Условие остановки.
+    pub stop_when: StopCondition,
+}
+
+/// Условие остановки цикла while.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StopCondition {
+    /// Остановить, если HTTP-статус равен указанному.
+    pub status: Option<u16>,
+    /// Остановить, если текст страницы содержит указанную строку.
+    pub text: Option<String>,
+    /// Остановить, если текст страницы НЕ содержит указанную строку.
+    pub text_not: Option<String>,
+}

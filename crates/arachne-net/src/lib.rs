@@ -95,6 +95,33 @@ pub struct StatsSnapshot {
     pub rate_limited: u64,
 }
 
+/// Контекст запроса: дополнительные заголовки и cookie.
+///
+/// Заполняется из job.yaml (циклы подставляют `{var}` в значения).
+#[derive(Debug, Default, Clone)]
+pub struct RequestContext {
+    /// Дополнительные заголовки запроса.
+    pub headers: Vec<(String, String)>,
+    /// Cookie в формате k=v; отправляются одним заголовком `Cookie`.
+    pub cookies: Vec<(String, String)>,
+}
+
+impl RequestContext {
+    /// Собрать значение заголовка `Cookie` из пар, если есть.
+    pub fn cookie_header(&self) -> Option<String> {
+        if self.cookies.is_empty() {
+            return None;
+        }
+        Some(
+            self.cookies
+                .iter()
+                .map(|(k, v)| format!("{k}={v}"))
+                .collect::<Vec<_>>()
+                .join("; "),
+        )
+    }
+}
+
 /// Бэкенд-независимое ядро сессии: ротация прокси, счётчики, ретраи.
 /// Конкретный HTTP-бэкенд подключается через [`HttpFetch`].
 pub struct StealthSession<B: HttpFetch> {
@@ -131,10 +158,18 @@ impl<B: HttpFetch> StealthSession<B> {
     /// Гауссов джиттер применяется вызывающей стороной через [`GaussJitter`]
     /// перед вызовом (детерминированный RNG — rules.md §8).
     pub async fn get(&self, url: &Url) -> Result<Html, NetError> {
+        let ctx = RequestContext::default();
+        self.get_with(url, &ctx).await
+    }
+
+    /// GET с ретраями, backoff и контекстом запроса (заголовки/куки).
+    /// 429 → ретрай; остальные статусы возвращаются как [`NetError::Status`]
+    /// вызывающему (например, для `while`-циклов по границе 404).
+    pub async fn get_with(&self, url: &Url, ctx: &RequestContext) -> Result<Html, NetError> {
         let mut attempt: u32 = 0;
         loop {
             attempt += 1;
-            match self.backend.fetch(url).await {
+            match self.backend.fetch_with(url, ctx).await {
                 Ok(html) => {
                     Self::bump(&self.stats.requests, 1);
                     return Ok(html);
@@ -176,7 +211,18 @@ impl<B: HttpFetch> StealthSession<B> {
 
 /// Абстракция HTTP-бэкенда (reqwest fallback / wreq impersonation).
 pub trait HttpFetch: Send + Sync {
-    fn fetch(&self, url: &Url) -> impl std::future::Future<Output = Result<Html, NetError>> + Send;
+    /// fetch с контекстом (заголовки/куки). Единственный обязательный метод.
+    fn fetch_with(
+        &self,
+        url: &Url,
+        ctx: &RequestContext,
+    ) -> impl std::future::Future<Output = Result<Html, NetError>> + Send;
+}
+
+/// Реализация fetch по умолчанию (без дополнительных заголовков/куки).
+pub async fn fetch_default(backend: &impl HttpFetch, url: &Url) -> Result<Html, NetError> {
+    let ctx = RequestContext::default();
+    backend.fetch_with(url, &ctx).await
 }
 
 // --- Default backend: reqwest + rustls (pure-Rust, no C toolchain) ---------
@@ -209,12 +255,20 @@ impl RustlsBackend {
 }
 
 impl HttpFetch for RustlsBackend {
-    async fn fetch(&self, url: &Url) -> Result<Html, NetError> {
+    async fn fetch_with(&self, url: &Url, ctx: &RequestContext) -> Result<Html, NetError> {
         debug!("GET {} (reqwest/rustls)", url);
-        let resp = self
+        let mut req = self
             .client
             .get(url.as_ref())
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36")
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36");
+        // Job-заголовки (могут переопределить User-Agent).
+        for (k, v) in &ctx.headers {
+            req = req.header(k.as_str(), v.as_str());
+        }
+        if let Some(cookie) = ctx.cookie_header() {
+            req = req.header("Cookie", cookie);
+        }
+        let resp = req
             .send()
             .await
             .map_err(|e| NetError::Request(e.to_string()))?;
