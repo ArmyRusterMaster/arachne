@@ -1,0 +1,29 @@
+# Парсинг quotes.toscrape.com с циклом while (остановка по тексту)
+# Фетчит последовательные страницы, пока не встретит "No quotes found!"
+# Запуск: arachne crawl --job job_quotes_while.yaml --output quotes_while.jsonl --delay-ms 300
+
+start_urls:
+  - https://quotes.toscrape.com/page/{page}/
+
+# Цикл while с авто-границей: останавливается при нахождении текста
+while:
+  var: page
+  start: 1
+  step: 1
+  max_iterations: 100
+  stop_when:
+    text: "No quotes found!"
+
+# Вложенные селекторы: цитаты с тегами
+nested_selectors:
+  - repeat_selector: .quote
+    fields:
+      - name: quote_text
+        selector: .text
+      - name: quote_author
+        selector: .author
+    nested:
+      - repeat_selector: .tags .tag
+        fields:
+          - name: tag_name
+            selector: "."
