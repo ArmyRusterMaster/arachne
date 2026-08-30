@@ -1,7 +1,2 @@
 /target
-/.check.log
-/.fmt.log
-/.fmt2.log
-/.clippy.log
-/.test.log
-/.build.log
+

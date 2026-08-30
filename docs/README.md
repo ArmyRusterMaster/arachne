@@ -27,14 +27,15 @@ Arachne — это pure-Rust движок скрытного краулинга,
 | 9 | [09-analogues.md](09-analogues.md) | Обзор аналогов и заимствуемые практики |
 | 10 | [10-resources.md](10-resources.md) | Ресурсы для изучения и реверс-инжиниринга |
 | 11 | [11-browser-engines.md](11-browser-engines.md) | Свой модульный движок, отказ от готовых браузеров |
-| 12 | [rules.md](../rules.md) | Правила для нейросетей при работе с кодовой базой |
-| 13 | [13-cicd-docker.md](13-cicd-docker.md) | CI/CD (GitHub Actions) и Docker-контейнеризация |
-| 14 | [14-linux-target.md](14-linux-target.md) | Linux как первоклассный production-таргет |
-| 15 | [15-proxy-infra.md](15-proxy-infra.md) | Продвинутая proxy/DNS инфраструктура (поздний этап) |
-| 16 | [16-llm.md](16-llm.md) | LLM-интеграции: Vision-селекторы, капчи ONNX (поздний этап) |
-| 17 | [17-ebpf.md](17-ebpf.md) | eBPF / TUN-TAP на уровне ядра (экспериментальный этап) |
-| 18 | [18-distributed.md](18-distributed.md) | Распределённые ноды / кластеринг (отложенный этап) |
-| 19 | [19-saas-platform.md](19-saas-platform.md) | SaaS-платформа: low-code конструктор, мультитенантность, биллинг, API (перспектива) |
+| 12 | [rules.md](rules.md) | Правила для нейросетей при работе с кодовой базой |
+| 13 | [backlog.md](backlog.md) | Backlog пожеланий и идей |
+| 14 | [13-cicd-docker.md](13-cicd-docker.md) | CI/CD (GitHub Actions) и Docker-контейнеризация |
+| 15 | [14-linux-target.md](14-linux-target.md) | Linux как первоклассный production-таргет |
+| 16 | [15-proxy-infra.md](15-proxy-infra.md) | Продвинутая proxy/DNS инфраструктура (поздний этап) |
+| 17 | [16-llm.md](16-llm.md) | LLM-интеграции: Vision-селекторы, капчи ONNX (поздний этап) |
+| 18 | [17-ebpf.md](17-ebpf.md) | eBPF / TUN-TAP на уровне ядра (экспериментальный этап) |
+| 19 | [18-distributed.md](18-distributed.md) | Распределённые ноды / кластеринг (отложенный этап) |
+| 20 | [19-saas-platform.md](19-saas-platform.md) | SaaS-платформа: low-code конструктор, мультитенантность, биллинг, API (перспектива) |
 
 ## Технологический стек (кратко)
 
@@ -81,7 +82,7 @@ Arachne — это pure-Rust движок скрытного краулинга,
 
 > Примечание об экосистеме: крейт `rquest` отзнан (yanked) автором с crates.io в пользу форка **`wreq`** (тот же автор, `0x676e67`). Документация упоминает `rquest`/`reqwest-impersonate` — в коде Фазы A используется `wreq` как прямой преемник (hard fork of reqwest, Apache-2.0).
 
-CI: `.github/workflows/ci.yml` — fmt → clippy `-D warnings` → test → build (ubuntu-musl + windows-msvc) → bench (baseline для `arachne-parse`, `arachne-net`). Юнит-тесты: **55** в workspace (`cargo test --workspace`). Дальнейшие вехи M2–M4 (очередь URL + дедуп + чекпоинт-резюм, профиль-отчёт) — дорожная карта в [08-development.md](08-development.md). Общие правила — в [rules.md](../rules.md).
+CI: `.github/workflows/ci.yml` — fmt → clippy `-D warnings` → test → build (ubuntu-musl + windows-msvc) → bench (baseline для `arachne-parse`, `arachne-net`). Юнит-тесты: **55** в workspace (`cargo test --workspace`). Дальнейшие вехи M2–M4 (очередь URL + дедуп + чекпоинт-резюм, профиль-отчёт) — дорожная карта в [08-development.md](08-development.md). Общие правила — в [rules.md](rules.md).
 
 ## Примечание
 
