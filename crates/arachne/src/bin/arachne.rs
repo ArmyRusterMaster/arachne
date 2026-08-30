@@ -243,7 +243,9 @@ async fn run_crawl(
 
         // Вложенный поиск.
         for ns in &job.nested_selectors {
+            debug!("processing nested selector: repeat={}", ns.repeat_selector);
             let nested = dom.select_all_nested(ns)?;
+            debug!("nested found {} records", nested.len());
             for nr in nested {
                 records.push(Record {
                     task_id: task_id.get(),

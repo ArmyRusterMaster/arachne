@@ -1,0 +1,29 @@
+# Полный парсинг quotes.toscrape.com
+# Запуск: arachne crawl --job job_quotes.yaml --output quotes.jsonl --delay-ms 300
+
+start_urls:
+  - https://quotes.toscrape.com/
+
+# Вложенные селекторы: цитаты с тегами
+nested_selectors:
+  - repeat_selector: .quote
+    fields:
+      - name: quote_text
+        selector: .text
+      - name: quote_author
+        selector: .author
+    nested:
+      - repeat_selector: .tags .tag
+        fields:
+          - name: tag_name
+            selector: "."
+
+# Переход по ссылкам (пагинация)
+follow:
+  selector: "ul.pager a"
+  max_depth: 3
+  pattern: "/page/"
+  same_host: true
+
+# Лимит страниц
+limit: 100

@@ -80,10 +80,4 @@ Arachne — это pure-Rust движок скрытного краулинга,
 - **default** — pure-Rust `reqwest` + `rustls` + `webpki-roots` (собирается на Windows **без** C-тулчейна);
 - **`--features impersonation`** — `wreq` (BoringSSL, профили `wreq-util::Profile::{Chrome133, Firefox133, Safari18_5}`): полная TLS-имперсонация (JA4, HTTP/2). Требует clang/LLVM; на Windows без clang — dev через WSL/Linux (docs/08-development.md §8.1, docs/14-linux-target.md).
 
-> Примечание об экосистеме: крейт `rquest` отзнан (yanked) автором с crates.io в пользу форка **`wreq`** (тот же автор, `0x676e67`). Документация упоминает `rquest`/`reqwest-impersonate` — в коде Фазы A используется `wreq` как прямой преемник (hard fork of reqwest, Apache-2.0).
-
 CI: `.github/workflows/ci.yml` — fmt → clippy `-D warnings` → test → build (ubuntu-musl + windows-msvc) → bench (baseline для `arachne-parse`, `arachne-net`). Юнит-тесты: **55** в workspace (`cargo test --workspace`). Дальнейшие вехи M2–M4 (очередь URL + дедуп + чекпоинт-резюм, профиль-отчёт) — дорожная карта в [08-development.md](08-development.md). Общие правила — в [rules.md](rules.md).
-
-## Примечание
-
-Исторические упоминания `rquest`/`reqwest-impersonate` в старых разделах документации означают тот же класс инструментов (TLS-имперсонация на BoringSSL); фактический стек см. в разделе «Технологический стек» выше и [01-tech-stack.md](01-tech-stack.md).
