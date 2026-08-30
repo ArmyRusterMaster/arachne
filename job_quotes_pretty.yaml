@@ -1,0 +1,36 @@
+# Полный парсинг quotes.toscrape.com — все страницы без ограничений
+# Запуск: arachne crawl --job job_quotes_pretty.yaml --output quotes_pretty.json --delay-ms 300
+
+start_urls:
+  - https://quotes.toscrape.com/
+
+# Вложенные селекторы: цитаты с тегами
+nested_selectors:
+  - repeat_selector: .quote
+    fields:
+      - name: quote_text
+        selector: .text
+      - name: quote_author
+        selector: .author
+    nested:
+      - repeat_selector: .tags .tag
+        fields:
+          - name: tag_name
+            selector: "."
+
+# Переход по ссылкам (пагинация) — произвольная глубина
+follow:
+  selector: "ul.pager a"
+  max_depth: 10
+  pattern: "/page/"
+  same_host: true
+
+# Шаблон структуры вывода (JSON-склейка)
+output_template:
+  source: "quotes.toscrape.com"
+  total_quotes: "{{quote_text}}"
+  quotes:
+    __each__: "quote_text"
+    text: "{{quote_text}}"
+    author: "{{quote_author}}"
+    tags: "{{tag_name}}"
