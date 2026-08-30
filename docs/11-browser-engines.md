@@ -14,19 +14,21 @@
 
 ```
 arachne/
-├── arachne-core/         # домен: Newtype-типы, ошибки, конфиг, сценарии
-├── arachne-net/          # транспорт: rquest, имперсонация, ротация прокси
-├── arachne-dom/          # парсинг: html5ever + scraper, CSS/XPath поиск
-├── arachne-js/           # JS-рантайм: boa_engine, нативные биндинги фингерпринтов
-├── arachne-stealth/      # маскировка: BrowserForge-профили, полифилы, jitter
-├── arachne-router/       # Smart Router: выбор режима, эскалация
-├── arachne-macro/        # интерпретатор YAML/JSON-макросов
-├── arachne-stream/       # стриминг данных, backpressure, lock-free очереди
-├── arachne-observ/       # tracing-спаны, state dumps
-└── arachne (bin)         # CLI: склейка
+├── arachne-domain/      # домен: Newtype-типы, ошибки, конфиг, сценарии          [готово]
+├── arachne-cqrs/        # CQRS-шина: команды/запросы, in-process                 [готово]
+├── arachne-net/         # транспорт: reqwest/wreq (имперсонация), ротация прокси [готово]
+├── arachne-parse/       # парсинг: html5ever + scraper, CSS-поиск, nested        [готово]
+├── arachne-export/      # экспорт: CSV/JSONL/SQLite, шаблоны вывода              [готово]
+├── arachne (bin)        # CLI: склейка, job.yaml, BFS-обход                      [готово]
+├── arachne-js/          # JS-рантайм: boa_engine, нативные биндинги фингерпринтов          [план, Фаза B]
+├── arachne-stealth/     # маскировка: BrowserForge-профили, полифилы (jitter уже в arachne-net) [план, Фаза B]
+├── arachne-router/      # Smart Router: выбор режима, эскалация                            [план, Фаза B]
+├── arachne-macro/       # интерпретатор YAML/JSON-макросов                                  [план, Фаза B]
+├── arachne-stream/      # стриминг данных, backpressure, lock-free очереди                  [план, Фаза B]
+└── arachne-observ/      # tracing-спаны, state dumps                                        [план, Фаза B]
 ```
 
-**Жёсткое правило:** каждый компонент — отдельный крейт с узкой ответственностью. Замена транспортного клиента (`rquest` → другой) — это правка одного адаптера внутри `arachne-net`, остальной код не трогается.
+**Жёсткое правило:** каждый компонент — отдельный крейт с узкой ответственностью. Замена транспортного клиента (`wreq` → другой) — это правка одного адаптера внутри `arachne-net`, остальной код не трогается.
 
 ## 11.3. Роль готовых движков — только референс
 
@@ -35,7 +37,7 @@ arachne/
 | **BrowserOxide** (`browser_oxide`) | **Референс, не зависимость**: изучаем, как делаются нативные фингерпринты и структура DOM. В `Cargo.toml` **не включаем**. |
 | **Obscura** | Источник практик по изоляции страниц и `--stealth`-режиму, без прямой зависимости. |
 | **boa_engine** | **Используем** — это не «браузер», а узкий JS-рантайм (EcmaScript), компонент `arachne-js`. |
-| **html5ever / scraper** | **Используем** — узкие парсеры HTML/DOM, компонент `arachne-dom`. |
+| **html5ever / scraper** | **Используем** — узкие парсеры HTML/DOM, компонент `arachne-parse`. |
 | **Servo** | Избыточен (полный движок с `mozjs`), в проект не попадает. |
 
 ## 11.4. Что берём из чужих движков (а не их код)

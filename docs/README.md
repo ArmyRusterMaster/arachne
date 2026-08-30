@@ -38,10 +38,13 @@ Arachne — это pure-Rust движок скрытного краулинга,
 
 ## Технологический стек (кратко)
 
-- **Сеть / имперсонация:** `rquest` / `reqwest-impersonate` (BoringSSL), `tokio`
-- **Собственный движок:** `boa_engine` (JS) + `html5ever`/`scraper` (DOM) + `arachne-stream` (lock-free каналы, стриминг) — **без готовых браузеров**
-- **Данные / сценарии:** `serde` / `serde_json` / `serde_yaml`, `cookie` / `cookie_store`
-- **Инфраструктура:** `socket2`, `trust-dns-resolver`, `tracing`, `moka`, `bytes`, `flume` / `crossbeam-channel`, `dashmap`
+Фактические зависимости Фазы A (см. `Cargo.toml` крейтов):
+
+- **Сеть / имперсонация:** default — `reqwest` + `rustls` + `webpki-roots` (pure-Rust, собирается без C-тулчейна); за feature-флагом `impersonation` в `arachne-net` — `wreq` (BoringSSL, профили Chrome133/Firefox133/Safari18_5: TLS JA4, HTTP/2); `tokio`
+- **DOM-парсинг:** `scraper` (html5ever) — CSS-селекторы, рекурсивные вложенные списки
+- **Данные / конфигурация:** `serde` / `serde_json` / `serde_yaml`, `csv`, `rusqlite` (feature `sqlite` в `arachne-export`), `url`, `bytes`
+- **CLI / инфраструктура:** `clap`, `tracing` + `tracing-subscriber`, `anyhow`, `thiserror`, атомики (lock-free счётчики)
+- **Архитектурный каркас:** CQRS-шина `arachne-cqrs` (in-process, `async-trait`) — задел под Фазу B/C ([18-distributed.md](18-distributed.md))
 - **Веб-слой (перспектива SaaS):** `axum` (REST API) + `leptos` (SSR/CSR), биллинг по подписке/запросу, API-ключи — см. [19-saas-platform.md](19-saas-platform.md)
 
 Полный разбор каждого компонента — в [01-tech-stack.md](01-tech-stack.md).
@@ -52,7 +55,7 @@ Arachne — это pure-Rust движок скрытного краулинга,
 
 | Фаза | Суть | Гейт |
 |---|---|---|
-| **A. Штамп-ядро** | Fast HTTP (`rquest`) + DOM-парсинг (`scraper`/`html5ever`) + экспорт CSV/JSONL/SQLite + `job.yaml` + resume; движок и Smart Router **не входят** | Устойчивый прогон 10к–100к страниц без бана + resume |
+| **A. Штамп-ядро** | Fast HTTP (`reqwest`/`wreq`) + DOM-парсинг (`scraper`/`html5ever`) + экспорт CSV/JSONL/SQLite + `job.yaml` + resume; движок и Smart Router **не входят** | Устойчивый прогон 10к–100к страниц без бана + resume |
 | **B. Полноценный single-node** | Собственный модульный движок, Smart Router, полный stealth, Shadow Recorder | Стабильное прохождение JS-защит |
 | **C. Мультинода + платформы** | Master/Worker поверх CQRS-шины, матрица платформ (musl/ARM64/контейнеры), eBPF — опционально | Линейное масштабирование воркеров |
 
@@ -60,16 +63,16 @@ Arachne — это pure-Rust движок скрытного краулинга,
 
 ## Статус
 
-**Фаза A «Штамп-ядро» — реализация начата (веха M0/M1).** Codebase — Cargo workspace из шести крейтов:
+**Фаза A «Штамп-ядро» — реализована (вехи M0–M3).** Codebase — Cargo workspace из шести крейтов:
 
 | Крейт | Назначение |
 |---|---|
-| `arachne-domain` | Newtype-типы (`Url`, `ProxyAddr`, `TaskId`, `SessionId`, `PageId`, `Millis`, `Seconds`, `RamLimitBytes`, `Html(Bytes)`, `Selector`) + типизированные ошибки (rules.md §2) |
-| `arachne-cqrs` | CQRS-каркас: трейт `Bus`, `Command`/`Query`, in-process реализация (docs/05-rust-patterns.md §5.8) |
-| `arachne-net` | Транспорт: generic `StealthSession<B: HttpFetch>` — ротация прокси round-robin, ретраи с экспоненциальным backoff, статистика; гауссов джиттер (Box-Muller) с внедряемым RNG (`JitterRng`) — rules.md §8 |
-| `arachne-parse` | DOM-парсинг + CSS-селекторы поверх `scraper` (html5ever) |
-| `arachne-export` | Экспорт CSV/JSONL (+ SQLite за feature-флагом `sqlite`) |
-| `arachne` | CLI-бинарник: `arachne crawl --job job.yaml --output out.csv` (`clap`), интеграция всех слоёв. Поддерживает вложенные селекторы (CSS) для извлечения структурированных списков |
+| `arachne-domain` | Newtype-типы (`Url`, `ProxyAddr`, `TaskId`, `SessionId`, `PageId`, `Millis`, `Seconds`, `RamLimitBytes`, `Html(Bytes)`, `Selector`) + типизированные ошибки (rules.md §2); домен job.yaml: `Loop`/`RangeLoop`, `While`/`StopCondition`, `NestedSelector`/`NestedField`, `OutputTemplate` |
+| `arachne-cqrs` | CQRS-каркас: трейт `Bus`, `Command`/`Query`, in-process реализация (docs/05-rust-patterns.md §5.8) — задел под Фазу B/C, пока CLI работает напрямую |
+| `arachne-net` | Транспорт: generic `StealthSession<B: HttpFetch>` — ротация прокси round-robin, ретраи с экспоненциальным backoff (429 → ретрай, остальные статусы — наружу для `while`-границ), `SessionStats` на атомиках; гауссов джиттер (Box-Muller) с внедряемым RNG (`JitterRng`) — rules.md §8; `RequestContext` (заголовки/куки из job.yaml) |
+| `arachne-parse` | DOM-парсинг поверх `scraper` (html5ever): плоские CSS-селекторы, рекурсивные вложенные селекторы (`nested`, произвольная глубина, спец-селектор `"."` для листовых элементов), `extract_links` (href по селектору) для BFS-обхода |
+| `arachne-export` | Экспорт CSV/JSONL/JSON/SQLite (SQLite за feature-флагом `sqlite`); шаблонизатор `output_template`: `{{field}}`, `{{field[*]}}`, секция `__each__` |
+| `arachne` | CLI-бинарник (`clap`): `arachne crawl --job job.yaml --output out.jsonl`; декларативный job.yaml — `loops` (декартово произведение `{var}`), `while` с авто-границей (`stop_when: {status\|text\|text_not}`), `follow` — BFS-обход по ссылкам (дедуп URL, `max_depth`, `pattern`, `same_host`), экспорт по расширению файла, `--delay-ms`, `--task-id` |
 
 Транспорт — двухбэкендный (за фича-флагом `impersonation` в `arachne-net`):
 
@@ -78,8 +81,8 @@ Arachne — это pure-Rust движок скрытного краулинга,
 
 > Примечание об экосистеме: крейт `rquest` отзнан (yanked) автором с crates.io в пользу форка **`wreq`** (тот же автор, `0x676e67`). Документация упоминает `rquest`/`reqwest-impersonate` — в коде Фазы A используется `wreq` как прямой преемник (hard fork of reqwest, Apache-2.0).
 
-CI: `.github/workflows/ci.yml` — fmt → clippy `-D warnings` → test → build (ubuntu-musl + windows-msvc). Дальнейшие вехи M1–M4 (очередь URL + дедуп + resume, ротация прокси по гейтам, профиль-отчёт) — дорожная карта в [08-development.md](08-development.md). Общие правила — в [rules.md](../rules.md).
+CI: `.github/workflows/ci.yml` — fmt → clippy `-D warnings` → test → build (ubuntu-musl + windows-msvc) → bench (baseline для `arachne-parse`, `arachne-net`). Юнит-тесты: **55** в workspace (`cargo test --workspace`). Дальнейшие вехи M2–M4 (очередь URL + дедуп + чекпоинт-резюм, профиль-отчёт) — дорожная карта в [08-development.md](08-development.md). Общие правила — в [rules.md](../rules.md).
 
 ## Примечание
 
-Оригиналы исходных файлов перед реструктуризацией сохранены в подпапке [`_legacy_backup`](_legacy_backup/) на случай необходимости восстановить исходный текст.
+Исторические упоминания `rquest`/`reqwest-impersonate` в старых разделах документации означают тот же класс инструментов (TLS-имперсонация на BoringSSL); фактический стек см. в разделе «Технологический стек» выше и [01-tech-stack.md](01-tech-stack.md).

@@ -1,7 +1,13 @@
 # Пример декларативного задания Фазы A («штамп», веха M3)
-# Запуск: arachne crawl --job job.yaml --output out.csv --delay-ms 300
+# Запуск: arachne crawl --job job.yaml --output out.jsonl --delay-ms 300 --task-id 7
+
 start_urls:
-  - https://quotes.toscrape.com/
+  - https://quotes.toscrape.com/page/{page}/
+
+# Цикл подстановки {page} в URL (диапазон 1..5).
+loops:
+  - var: page
+    range: { start: 1, end: 5 }
 
 # CSS-селекторы: что вытащить со страницы (первое совпадение на селектор)
 selectors:
@@ -27,6 +33,46 @@ nested_selectors:
         fields:
           - name: tag_name
             selector: "."
+
+# Цикл с условием остановки (while) — фетчит пока условие не выполнится.
+# stop_when.text: останавливается, когда страница содержит строку.
+# stop_when.text_not: останавливается, когда страница НЕ содержит строку.
+# stop_when.status: останавливается, когда HTTP-статус равен указанному (404).
+#
+# while:
+#   var: page
+#   start: 1
+#   step: 1
+#   max_iterations: 100
+#   stop_when:
+#     status: 404
+#     text: "No quotes found"
+
+# Шаблон структуры вывода (JSON-склейка с плейсхолдерами).
+# {{field}} — первое значение поля; {{field[*]}} — все значения через запятую.
+# __each__ — секция повторения: для каждого значения field собирает объект.
+#
+# output_template:
+#   source: "quotes.toscrape.com"
+#   title: "{{page_title}}"
+#   quotes:
+#     __each__: "quote_text"
+#     text: "{{quote_text}}"
+#     author: "{{quote_author}}"
+#     tags: "{{tag_name}}"
+
+# Переход по ссылкам (BFS-обход): после парсинга страницы ссылки, найденные
+# по CSS-селектору, резолвятся относительно текущего URL и ставятся в очередь.
+# Каждая найденная страница обрабатывается так же: селекторы → записи → follow.
+# max_depth: глубина переходов (1 — одна ступень от стартовых страниц).
+# pattern: фильтр-подстрока (только ссылки, содержащие её).
+# same_host: не покидать хост (по умолчанию true).
+#
+# follow:
+#   selector: "ul.pager a"
+#   max_depth: 3
+#   pattern: "/page/"
+#   same_host: true
 
 # Опционально: пул прокси (round-robin)
 # proxies:

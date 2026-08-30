@@ -2,11 +2,16 @@
 
 ## 1.1. Сетевой уровень (имперсонация)
 
-### `rquest` / `reqwest-impersonate`
-Сетевые клиенты на базе **BoringSSL** (от Google) для 100% маскировки сетевых отпечатков под реальные браузеры — **Chrome, Safari, Firefox**. Маскируются:
-- TLS-отпечаток **JA4** (ранее JA3);
-- HTTP/2 фреймы (SETTINGS, WINDOW_UPDATE, PRIORITY);
-- порядок и регистр заголовков.
+### `reqwest` + `rustls` (default) / `wreq` (feature `impersonation`)
+
+> **Актуально (Фаза A):** крейт `rquest` отзнан (yanked) автором с crates.io; преемник — **`wreq`** (тот же автор, `0x676e67`, форк `reqwest`). Транспорт — двухбэкендный за трейтом `HttpFetch` в `arachne-net`:
+> - **default** — `reqwest` + `rustls` + `webpki-roots`: pure-Rust, собирается без C-тулчейна (Windows/Linux/CI);
+> - **`impersonation`** — `wreq` (BoringSSL): полная маскировка сетевых отпечатков под реальные браузеры (**Chrome, Safari, Firefox** — профили `Chrome133`/`Firefox133`/`Safari18_5` из `wreq-util`). Маскируются:
+>   - TLS-отпечаток **JA4** (ранее JA3);
+>   - HTTP/2 фреймы (SETTINGS, WINDOW_UPDATE, PRIORITY);
+>   - порядок и регистр заголовков.
+>
+>   Требует clang/LLVM; на Windows без clang — dev через WSL/Linux ([08-development.md](08-development.md#81-чек-лист-старта-разработки), [14-linux-target.md](14-linux-target.md)).
 
 ### `tokio`
 Асинхронный рантайм для параллельной обработки сотен потоков и сетевых запросов одновременно.
@@ -21,8 +26,8 @@ JavaScript-движок на чистом Rust — узкий JS-рантайм 
 ### `html5ever` / `scraper`
 Быстрые pure-Rust парсеры для построения виртуального DOM-дерева в памяти и поиска элементов по **CSS-селекторам / XPath**.
 
-### `arachne-stream`
-Собственный крейт стриминга: lock-free очереди, backpressure и конвейерная обработка данных (см. [18-distributed.md](18-distributed.md#184-локфри-структуры-данных))
+### `arachne-stream` (план, Фаза B)
+Будущий собственный крейт стриминга: lock-free очереди, backpressure и конвейерная обработка данных (см. [18-distributed.md](18-distributed.md#184-локфри-структуры-данных)). В Фазе A конвейер — последовательный цикл CLI; CQRS-каркас (`arachne-cqrs`, in-process) уже готов как точка замены транспорта на очередь.
 
 ## 1.3. Управление данными и сценариями
 
@@ -32,6 +37,24 @@ JavaScript-движок на чистом Rust — узкий JS-рантайм 
 ### `cookie` / `cookie_store`
 Единое потокобезопасное хранилище cookie-файлов для сквозной авторизации.
 
+### Точные зависимости крейтов
+
+| Крейт | Зависимости | Примечание |
+|---|---|---|
+| `arachne-domain` | `bytes`, `serde`, `serde_json`, `thiserror`, `url`, `uuid` (v4) | Все типы-обёртки (Newtype) |
+| `arachne-cqrs` | `async-trait`, `serde`, `thiserror`, `tokio` (sync) | CQRS-шина |
+| `arachne-net` | `tokio` (full), `serde`, `thiserror`, `bytes`, `reqwest` (default), `wreq` + `wreq-util` (feature `impersonation`) | HTTP-транспорт |
+| `arachne-parse` | `scraper`, `thiserror`, `serde` | DOM-парсинг |
+| `arachne-export` | `serde`, `csv`, `rusqlite` (feature `sqlite`), `thiserror` | Экспорт |
+| `arachne` (bin) | `clap`, `tokio` (full), `serde`, `serde_yaml`, `tracing`, `anyhow`, `url` | CLI |
+
+### Фича-флаги (feature flags)
+
+| Крейт | Флаг | Включает | Статус по умолчанию |
+|---|---|---|---|
+| `arachne-net` | `impersonation` | `wreq` + `wreq-util` (BoringSSL, TLS JA4, HTTP/2, профили Chrome/Firefox/Safari) | **выключен** (default = `reqwest`+`rustls`) |
+| `arachne-export` | `sqlite` | `rusqlite` (bundled) — экспорт в SQLite | **выключен** (JSONL/CSV доступен всегда) |
+
 ## 1.4. Веб-слой и SaaS (перспектива)
 
 Перспективный SaaS-слой строится на `axum` (REST API/аутентификация/биллинг) + `leptos` (SSR+CSR для low-code конструктора сценариев из блоков). Мультитенантность, оплата по подписке/запросу и резидентные прокси как сервис — детально в [19-saas-platform.md](19-saas-platform.md). Не входит в базовое ядро (подключается за фича-флагом `saas`).
@@ -39,6 +62,8 @@ JavaScript-движок на чистом Rust — узкий JS-рантайм 
 ---
 
 ## 2. Ключевые фичи комбайна
+
+> Раздел описывает **целевые** фичи. Статус Фазы A: реализованы §2.1 (Fast HTTP-режим; Headless — Фаза B), §2.5 частично (гауссов джиттер задержек), §2.7 (ротация прокси round-robin). Остальные — Фаза B (собственный движок, cookie-мост, полифилы JS).
 
 ### 2.1. Двухрежимная архитектура (Hybrid Core)
 На лету переключает сессию между:

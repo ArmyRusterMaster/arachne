@@ -5,6 +5,7 @@
 //! - `{{name[*]}}` — все значения поля списком;
 //! - секция `__each__: "repeat_name"` — повторяется по блокам `repeat_name`:
 //!   внутри `{{nested_name}}` собирает значения `nested_name[block.j]` списком.
+//!   Плоские поля `flat_name[block]` подставляются по индексу блока.
 
 use std::collections::BTreeMap;
 
@@ -72,7 +73,7 @@ fn render_value(tpl: &Value, idx: &FieldIndex, nested: &NestedGroups) -> Result<
                 let blocks = idx.get(repeat_name).map(Vec::len).unwrap_or(0);
                 let mut items = Vec::with_capacity(blocks);
                 for b in 0..blocks {
-                    items.push(render_each_item(o, nested, b)?);
+                    items.push(render_each_item(o, idx, nested, b)?);
                 }
                 return Ok(Value::Array(items));
             }
@@ -89,6 +90,7 @@ fn render_value(tpl: &Value, idx: &FieldIndex, nested: &NestedGroups) -> Result<
 /// Рендер одного элемента `__each__` для блока `block`.
 fn render_each_item(
     tpl_obj: &Map<String, Value>,
+    idx: &FieldIndex,
     nested: &NestedGroups,
     block: usize,
 ) -> Result<Value, String> {
@@ -97,26 +99,39 @@ fn render_each_item(
         if k == "__each__" {
             continue;
         }
-        m.insert(k.clone(), render_each_value(v, nested, block)?);
+        m.insert(k.clone(), render_each_value(v, idx, nested, block)?);
     }
     Ok(Value::Object(m))
 }
 
-fn render_each_value(tpl: &Value, nested: &NestedGroups, block: usize) -> Result<Value, String> {
+fn render_each_value(
+    tpl: &Value,
+    idx: &FieldIndex,
+    nested: &NestedGroups,
+    block: usize,
+) -> Result<Value, String> {
     match tpl {
         Value::String(s) => {
             let trimmed = s.trim();
             if trimmed.starts_with("{{") && trimmed.ends_with("}}") {
                 let name = &trimmed[2..trimmed.len() - 2];
+                // 1) Вложенные поля повторяющегося блока (name[i.j]).
                 if let Some(blocks) = nested.get(name) {
-                    return match blocks.get(block) {
-                        Some(vals) => serde_json::to_value(vals).map_err(|e| e.to_string()),
-                        None => Ok(json!([])),
-                    };
+                    if let Some(vals) = blocks.get(block) {
+                        return serde_json::to_value(vals).map_err(|e| e.to_string());
+                    }
+                    return Ok(json!([]));
+                }
+                // 2) Плоские поля с индексом первого уровня (name[block]).
+                if let Some(vals) = idx.get(name) {
+                    if let Some(v) = vals.get(block) {
+                        return Ok(json!(v.clone()));
+                    }
+                    return Ok(json!(null));
                 }
                 return Ok(json!(null));
             }
-            // Внутри строки: подставляем значения вложенного поля блока.
+            // Внутри строки: подставляем значения вложенного/плоского поля блока.
             let mut out = s.to_string();
             for (name, blocks) in nested {
                 let placeholder = format!("{{{{{name}}}}}");
@@ -125,17 +140,24 @@ fn render_each_value(tpl: &Value, nested: &NestedGroups, block: usize) -> Result
                     out = out.replace(&placeholder, &joined);
                 }
             }
+            for (name, vals) in idx {
+                let placeholder = format!("{{{{{name}}}}}");
+                if out.contains(&placeholder) {
+                    let val = vals.get(block).cloned().unwrap_or_default();
+                    out = out.replace(&placeholder, &val);
+                }
+            }
             Ok(Value::String(out))
         }
         Value::Array(a) => Ok(Value::Array(
             a.iter()
-                .map(|v| render_each_value(v, nested, block))
+                .map(|v| render_each_value(v, idx, nested, block))
                 .collect::<Result<Vec<_>, _>>()?,
         )),
         Value::Object(o) => {
             let mut m = Map::new();
             for (k, v) in o {
-                m.insert(k.clone(), render_each_value(v, nested, block)?);
+                m.insert(k.clone(), render_each_value(v, idx, nested, block)?);
             }
             Ok(Value::Object(m))
         }

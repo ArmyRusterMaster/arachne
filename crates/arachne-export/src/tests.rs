@@ -78,3 +78,47 @@ fn export_error_display() {
     let e = ExportError::Io(std::io::Error::other("bad"));
     assert!(e.to_string().contains("IO error"));
 }
+
+#[test]
+fn template_each_with_flat_and_nested() {
+    use serde_json::json;
+    fn rec(t: u64, p: u64, f: &str, v: &str) -> Record {
+        Record {
+            task_id: t,
+            page_id: p,
+            url: "https://x.io".into(),
+            field: f.into(),
+            value: v.into(),
+        }
+    }
+    let records = vec![
+        rec(1, 1, "title", "Title"),
+        rec(1, 1, "quote_text[0]", "Q1"),
+        rec(1, 1, "quote_author[0]", "A1"),
+        rec(1, 1, "tag_name[0.0]", "t1"),
+        rec(1, 1, "tag_name[0.1]", "t2"),
+        rec(1, 1, "quote_text[1]", "Q2"),
+        rec(1, 1, "quote_author[1]", "A2"),
+    ];
+    let tpl = json!({
+        "title": "{{title}}",
+        "quotes": {
+            "__each__": "quote_text",
+            "text": "{{quote_text}}",
+            "author": "{{quote_author}}",
+            "tags": "{{tag_name}}"
+        }
+    });
+    let idx = template::group_fields(&records);
+    let nested = template::group_nested(&records);
+    let out = template::render(&tpl, &idx, &nested).unwrap();
+    assert_eq!(out["title"].as_str(), Some("Title"));
+    let quotes = out["quotes"].as_array().unwrap();
+    assert_eq!(quotes.len(), 2);
+    assert_eq!(quotes[0]["text"], "Q1");
+    assert_eq!(quotes[0]["author"], "A1");
+    assert_eq!(quotes[0]["tags"], json!(["t1", "t2"]));
+    assert_eq!(quotes[1]["text"], "Q2");
+    assert_eq!(quotes[1]["author"], "A2");
+    assert_eq!(quotes[1]["tags"], json!([]));
+}

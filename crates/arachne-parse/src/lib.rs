@@ -68,6 +68,21 @@ impl Dom {
             .collect())
     }
 
+    /// Извлечь значения атрибута `href` всех элементов, совпадающих с `sel`.
+    ///
+    /// Используется для перехода по ссылкам (job.yaml `follow`): селектор
+    /// выбирает элементы-ссылки, а резолв относительных `href` выполняет
+    /// вызывающая сторона относительно URL страницы.
+    pub fn extract_links(&self, sel: &Selector) -> Result<Vec<String>, ParseError> {
+        let css = ScraperSelector::parse(sel.as_ref())
+            .map_err(|e| ParseError::Selector(e.to_string()))?;
+        Ok(self
+            .inner
+            .select(&css)
+            .filter_map(|el| el.value().attr("href").map(str::to_string))
+            .collect())
+    }
+
     /// Вложенный поиск с произвольной вложенностью (рекурсивный).
     ///
     /// Имя поля в результате — `{name}[{путь индексов}]`: `quote_text[0]`,

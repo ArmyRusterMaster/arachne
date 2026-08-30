@@ -39,10 +39,12 @@ jobs:
 ## 13.2. Сборка Linux-бинарников
 
 - `x86_64-unknown-linux-musl` — статический бинарник «поставил и работает» на любом дистрибутиве;
-- крейты с C-зависимостями (OpenSSL и т.п.) не используем — всё pure-Rust (`rquest` с `rustls`/BoringSSL-patch, `trust-dns`), чтобы musl-сборка проходила без боли;
+- крейты с C-зависимостями (OpenSSL и т.п.) не используем — всё pure-Rust (`reqwest`+`rustls` по умолчанию; `wreq` с BoringSSL — за feature `impersonation` и только там, где нужен clang), чтобы musl-сборка проходила без боли;
 - подробности таргета — [14-linux-target.md](14-linux-target.md).
 
 ## 13.3. Docker-образ
+
+> **Статус:** план (Dockerfile в репозитории пока нет); пайплайн CI уже реализован в `.github/workflows/ci.yml` — совпадает с §13.1 плюс job `bench` (baseline для `arachne-parse`/`arachne-net`).
 
 Многоступенчатая сборка: компиляция в `rust:alpine`, рантайм — минимальный образ:
 
@@ -135,7 +137,7 @@ commit_parsers = [
 - [ ] Профилирование крупных фаз — `cargo flamegraph`/`perf`, отчёт в `docs/benches/` (см. [08-development.md](08-development.md#83-профилирование-и-отчёт-после-каждой-крупной-фазы)).
 - [ ] Кэш зависимостей (`rust-cache`) включён — пайплайн < 10 минут.
 
-> CI-бенчмарки: job на hot-path крейтах (`arachne-net`, `arachne-dom`, `arachne-stream`), gate — отсутствие регрессии относительно прошлого baseline.
+> CI-бенчмарки: job на hot-path крейтах (`arachne-net`, `arachne-parse`; стриминговый крейт добавится в Фазе B), gate — отсутствие регрессии относительно прошлого baseline.
 
 ### 13.6.1. Пример job бенчмарков (criterion + gate на регрессию)
 
@@ -149,7 +151,7 @@ commit_parsers = [
           components: criterion
       - uses: Swatinem/rust-cache@v2
       # baseline: сохраняем результаты дефолтного запуска как эталон
-      - run: cargo bench -p arachne-dom -p arachne-net -p arachne-stream -- --save-baseline prev
+      - run: cargo bench -p arachne-parse -p arachne-net -- --save-baseline prev
       # при изменении кода запускаем снова и сравниваем с prev; регрессия -> fail
       - uses: boa-dev/criterion-compare-action@v3
         with:
@@ -159,3 +161,5 @@ commit_parsers = [
 ```
 
 > Принцип: бенчмарки дают **baseline**, а CI сравнивает «было → стало». Регрессия по времени/памяти → красный PR. Так крупные оптимизации измеряются, а не «по ощущениям».
+>
+> **Фактически в CI сейчас:** упрощённый job `bench` — `cargo bench -p arachne-parse -p arachne-net -- --save-baseline prev || true` (захват baseline). Каталоги `benches/` с criterion-тестами пока не заведены — гейт на регрессию включится вместе с ними (M4).

@@ -68,6 +68,24 @@ fn extract_pagination_next_link() {
 }
 
 #[test]
+fn extract_links_extracts_href() {
+    let html = Html::new(Bytes::from_static(
+        r#"<html><body>
+            <a href="/page/2">next</a>
+            <a href="https://ext.io/x">ext</a>
+            <a>no href</a>
+        </body></html>"#
+            .as_bytes(),
+    ));
+    let d = Dom::parse(&html).unwrap();
+    let sel = Selector::try_from("a").unwrap();
+    let links = d.extract_links(&sel).unwrap();
+    assert_eq!(links.len(), 2); // якорь без href пропущен
+    assert_eq!(links[0], "/page/2");
+    assert_eq!(links[1], "https://ext.io/x");
+}
+
+#[test]
 fn nested_selector_extracts_repeated_blocks() {
     let html = Html::new(Bytes::from_static(
         r#"<html><body>
