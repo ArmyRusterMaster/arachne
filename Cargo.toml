@@ -13,8 +13,3 @@ members = [
 edition = "2024"
 license = "Apache-2.0"
 publish = false
-
-[profile.release]
-lto = true
-codegen-units = 1
-opt-level = 3

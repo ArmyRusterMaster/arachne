@@ -109,9 +109,7 @@ fn template_each_with_flat_and_nested() {
             "tags": "{{tag_name}}"
         }
     });
-    let idx = template::group_fields(&records);
-    let nested = template::group_nested(&records);
-    let out = template::render(&tpl, &idx, &nested).unwrap();
+    let out = template::render(&tpl, &records).unwrap();
     assert_eq!(out["title"].as_str(), Some("Title"));
     let quotes = out["quotes"].as_array().unwrap();
     assert_eq!(quotes.len(), 2);

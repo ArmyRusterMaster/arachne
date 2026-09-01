@@ -19,6 +19,18 @@ pub type FieldIndex = BTreeMap<String, Vec<String>>;
 /// Вложенные группы: имя → для каждого блока список значений `name[i.j]`.
 pub type NestedGroups = BTreeMap<String, Vec<Vec<String>>>;
 
+/// Группировка записей по `page_id`. Каждый "батч" — записи одной страницы.
+pub type PageBatch = Vec<Vec<Record>>;
+
+/// Сгруппировать записи по `page_id` для батч-рендеринга.
+pub fn group_by_page(records: &[Record]) -> PageBatch {
+    let mut batches: BTreeMap<u64, Vec<Record>> = BTreeMap::new();
+    for r in records {
+        batches.entry(r.page_id).or_default().push(r.clone());
+    }
+    batches.into_values().collect()
+}
+
 /// Сгруппировать записи страницы по имени поля (`quote_text[0]` → `quote_text`).
 pub fn group_fields(records: &[Record]) -> FieldIndex {
     let mut idx: FieldIndex = BTreeMap::new();
@@ -54,9 +66,11 @@ pub fn group_nested(records: &[Record]) -> NestedGroups {
     out
 }
 
-/// Отрендерить шаблон в JSON.
-pub fn render(tpl: &Value, idx: &FieldIndex, nested: &NestedGroups) -> Result<Value, String> {
-    render_value(tpl, idx, nested)
+/// Отрендерить шаблон в JSON для одного батча (одной страницы).
+pub fn render(tpl: &Value, records: &[Record]) -> Result<Value, String> {
+    let idx = group_fields(records);
+    let nested = group_nested(records);
+    render_value(tpl, &idx, &nested)
 }
 
 fn render_value(tpl: &Value, idx: &FieldIndex, nested: &NestedGroups) -> Result<Value, String> {

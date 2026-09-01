@@ -3,6 +3,9 @@
 //! Phase A («Штамп-ядро»): fetch → DOM → CSS selectors → export.
 //! Собственный JS/DOM-движок и Smart Router входят в Фазу B.
 
+#[path = "../checkpoint_src.rs"]
+mod checkpoint;
+
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
@@ -80,6 +83,12 @@ struct Job {
     /// Cookie для запросов (можно с {var}).
     #[serde(default)]
     cookies: Vec<CookieMapping>,
+    /// Путь к файлу чекпоинта (персистентная очередь). При наличии — resume.
+    #[serde(default)]
+    checkpoint: Option<PathBuf>,
+    /// CSS-селектор ссылки «next» для пагинации (docs/03-job-yaml.md).
+    #[serde(default)]
+    next_selector: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -196,11 +205,46 @@ async fn run_crawl(
         .transpose()?;
 
     // BFS-очередь краулинга.
-    let mut queue: VecDeque<CrawlItem> = seed_urls.into_iter().map(|(u, v)| (u, 0u32, v)).collect();
+    let mut queue: VecDeque<checkpoint::CrawlItem> = VecDeque::new();
     let mut visited: HashSet<String> = HashSet::new();
     let mut first_request = true;
+    // next_selector: CSS-селектор ссылки «next страница» (пагинация).
+    let next_sel = job
+        .next_selector
+        .as_ref()
+        .map(|s| Selector::try_from(s.as_str()))
+        .transpose()?;
 
-    while let Some((url_pattern, depth, vars)) = queue.pop_front() {
+    // Персистентная очередь (M2): чекпоинт на диск для resume после kill -9.
+    if let Some(cp) = job.checkpoint.as_ref() {
+        if let Some(state) = checkpoint::load(cp)? {
+            info!(
+                "resuming from checkpoint {} ({} queued, {} visited)",
+                cp.display(),
+                state.queue.len(),
+                state.visited.len()
+            );
+            for u in &state.visited {
+                visited.insert(u.clone());
+            }
+            page_id = PageId::new(state.page_count + 1);
+            request_count = state.visited.len();
+            for item in &state.queue {
+                queue.push_back(item.clone());
+            }
+        }
+    }
+
+    if queue.is_empty() {
+        for (u, v) in seed_urls {
+            queue.push_back(checkpoint::CrawlItem { url: u, depth: 0u32, vars: v });
+        }
+    }
+
+    while let Some(item) = queue.pop_front() {
+        let url_pattern = item.url;
+        let depth = item.depth;
+        let vars = item.vars;
         // Rate limit: пауза между запросами (кроме первого), mean ± sigma/2.
         if first_request {
             first_request = false;
@@ -269,8 +313,39 @@ async fn run_crawl(
                     continue;
                 }
                 debug!(depth = depth + 1, "follow: enqueue {abs}");
-                queue.push_back((abs, depth + 1, vars.clone()));
+                queue.push_back(checkpoint::CrawlItem {
+                    url: abs,
+                    depth: depth + 1,
+                    vars: vars.clone(),
+                });
             }
+        }
+
+        // next-селектор: пагинация по CSS-ссылке «следующая страница».
+        if let Some(nsel) = next_sel.as_ref() {
+            for href in dom.extract_links(nsel)? {
+                let Some(abs) = resolve_url(&url_str, &href) else {
+                    continue;
+                };
+                if !visited.contains(&abs) {
+                    debug!("next: enqueue {abs}");
+                    queue.push_back(checkpoint::CrawlItem {
+                        url: abs,
+                        depth: depth + 1,
+                        vars: vars.clone(),
+                    });
+                }
+            }
+        }
+
+        // Чекпоинт (M2): сохраняем очередь и посещённые URL на диск.
+        if let Some(cp) = job.checkpoint.as_ref() {
+            let state = checkpoint::CheckpointState {
+                queue: queue.iter().cloned().collect(),
+                visited: visited.iter().cloned().collect(),
+                page_count: page_id.get(),
+            };
+            checkpoint::save(cp, &state)?;
         }
 
         page_id = PageId::new(page_id.get() + 1);
@@ -299,26 +374,32 @@ async fn run_crawl(
         match ext.as_str() {
             "csv" => arachne_export::to_csv(out, &records)?,
             "jsonl" => {
-                // Если задан output_template — рендерим структурированный JSON.
+                // Если задан output_template — рендерим структурированный JSON по батчам (page_id).
                 if let Some(tpl) = &job.output_template {
-                    let idx = arachne_export::template::group_fields(&records);
-                    let nested = arachne_export::template::group_nested(&records);
-                    let rendered = arachne_export::template::render(&tpl.0, &idx, &nested)
-                        .map_err(|e| anyhow::anyhow!("template: {e}"))?;
-                    let json = serde_json::to_string_pretty(&rendered)?;
+                    let batches = arachne_export::template::group_by_page(&records);
+                    let mut page_results = Vec::new();
+                    for page_records in &batches {
+                        let rendered = arachne_export::template::render(&tpl.0, page_records)
+                            .map_err(|e| anyhow::anyhow!("template: {e}"))?;
+                        page_results.push(rendered);
+                    }
+                    let json = serde_json::to_string_pretty(&page_results)?;
                     std::fs::write(out, json)?;
                 } else {
                     arachne_export::to_jsonl(out, &records)?;
                 }
             }
             "json" => {
-                // Если задан output_template — рендерим структурированный JSON.
+                // Если задан output_template — рендерим структурированный JSON по батчам (page_id).
                 if let Some(tpl) = &job.output_template {
-                    let idx = arachne_export::template::group_fields(&records);
-                    let nested = arachne_export::template::group_nested(&records);
-                    let rendered = arachne_export::template::render(&tpl.0, &idx, &nested)
-                        .map_err(|e| anyhow::anyhow!("template: {e}"))?;
-                    let json = serde_json::to_string_pretty(&rendered)?;
+                    let batches = arachne_export::template::group_by_page(&records);
+                    let mut page_results = Vec::new();
+                    for page_records in &batches {
+                        let rendered = arachne_export::template::render(&tpl.0, page_records)
+                            .map_err(|e| anyhow::anyhow!("template: {e}"))?;
+                        page_results.push(rendered);
+                    }
+                    let json = serde_json::to_string_pretty(&page_results)?;
                     std::fs::write(out, json)?;
                 } else {
                     let json = serde_json::to_string_pretty(&records)?;
